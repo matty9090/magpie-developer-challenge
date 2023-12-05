@@ -4,12 +4,13 @@ namespace App;
 
 class Product
 {
-    public string $name;
+    public string $title;
     public string $price;
-
-    public function __construct($name, $price)
-    {
-        $this->name = $name;
-        $this->price = $price;
-    }
+    public string $imageUrl;
+    public string $capacityMB;
+    public string $colour;
+    public string $availabilityText;
+    public string $isAvailable;
+    public string $shippingText;
+    public string $shippingDate;
 }
