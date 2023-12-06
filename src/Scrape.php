@@ -18,7 +18,6 @@ class Scrape
 
     private const SHIPPING_DELIVERY_TEST = 'delivery';
     private const SHIPPING_FREE_TEST = 'Free Shipping';
-    private const SHIPPING_UNAVAILABLE_TEST = 'Unavailable';
 
     private const UNITS_MB = [
         'PB' => 1000 * 1000 * 1000, // Maybe one day ;)
@@ -97,12 +96,13 @@ class Scrape
                 $product->price = $this->parsePrice($price);
                 $product->imageUrl = $imageUrl;
                 $product->capacityMB = $capacity;
+                $product->colour = $colour;
                 $product->isAvailable = $isAvailable;
                 $product->availabilityText = $availabilityText;
                 $product->shippingText = $shippingText;
                 $product->shippingDate = $shippingDate;
 
-                echo count($this->products) . ': ' . $product->title . "\n";
+                echo count($this->products) . ': ' . $product->title . " ($colour)" . "\n";
                 
                 $this->products[] = $product;
             }
@@ -110,7 +110,7 @@ class Scrape
 
         $this->removeDuplicates();
         
-        file_put_contents('output.json', json_encode($this->products, JSON_PRETTY_PRINT));
+        file_put_contents('output.json', json_encode($this->products, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
     }
 
     private function getProductTitle($node, &$title)
