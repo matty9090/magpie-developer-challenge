@@ -9,8 +9,12 @@ use Symfony\Component\DomCrawler\Crawler;
 
 class Scrape
 {
-    private const CURRENCY_SYMBOL = '£';
     private const URL = 'https://www.magpiehq.com/developer-challenge/smartphones';
+    
+    private const CURRENCY_SYMBOL = '£';
+
+    private const AVAILABILITY_IN_STOCK = 'In Stock';
+    private const AVAILABILITY_STR_TEST = 'Availability:';
 
     private const UNITS_MB = [
         'PB' => 1000 * 1000 * 1000, // Maybe one day ;)
@@ -64,6 +68,14 @@ class Scrape
                 return;
             }
 
+            $isAvailable = false;
+            $availabilityText = [];
+            if (!$this->getProductAvailability($node, $isAvailable, $availabilityText))
+            {
+                echo "Failed to get product availability\n";
+                return;
+            }
+
             foreach ($colours as $colour)
             {
                 $product = new Product();
@@ -71,7 +83,8 @@ class Scrape
                 $product->price = $this->parsePrice($price);
                 $product->imageUrl = $imageUrl;
                 $product->capacityMB = $capacity;
-                $product->colour = $colour;
+                $product->isAvailable = $isAvailable;
+                $product->availabilityText = $availabilityText;
 
                 $this->products[] = $product;
             }
@@ -143,11 +156,29 @@ class Scrape
 
     private function getProductColours($node, &$colours)
     {
-        $colours = $node->filter('span[data-colour]')->each(function (Crawler $node, $i) : string {
-            return strtolower($node->attr('data-colour'));
+        $colours = $node->filter('span[data-colour]')->each(function (Crawler $col_node, $i) : string {
+            return strtolower($col_node->attr('data-colour'));
         });
 
         return count($colours) >= 0;
+    }
+
+    private function getProductAvailability($node, &$isAvailable, &$availabilityText)
+    {
+        $filtered = $node->filter('div div')->reduce(function (Crawler $avail_node, $j) : bool {
+            return str_contains($avail_node->text(), self::AVAILABILITY_STR_TEST);
+        });
+
+        if ($filtered->count() < 0)
+        {
+            return false;
+        }
+
+        $txt = $filtered->last()->text();
+        $isAvailable = str_contains($txt, self::AVAILABILITY_IN_STOCK);
+        $availabilityText = str_replace(self::AVAILABILITY_STR_TEST . ' ', '', $txt);
+
+        return true;
     }
 
     private function parsePrice($price_str)

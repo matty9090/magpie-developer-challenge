@@ -10,7 +10,7 @@ class Product
     public float $capacityMB;
     public string $colour;
     public string $availabilityText;
-    public string $isAvailable;
+    public bool $isAvailable;
     public string $shippingText;
     public string $shippingDate;
 
