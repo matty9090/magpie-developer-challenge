@@ -16,6 +16,10 @@ class Scrape
     private const AVAILABILITY_IN_STOCK = 'In Stock';
     private const AVAILABILITY_STR_TEST = 'Availability:';
 
+    private const SHIPPING_DELIVERY_TEST = 'delivery';
+    private const SHIPPING_FREE_TEST = 'Free Shipping';
+    private const SHIPPING_UNAVAILABLE_TEST = 'Unavailable';
+
     private const UNITS_MB = [
         'PB' => 1000 * 1000 * 1000, // Maybe one day ;)
         'TB' => 1000 * 1000,
@@ -23,6 +27,12 @@ class Scrape
         'MB' => 1,
         'KB' => 1 / 1000
     ];
+
+    private const DATES_SHORT = [
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+    ];
+
+    private const DATE_OUTPUT_FORMAT = "Y-m-d";
 
     private array $products = [];
 
@@ -47,11 +57,10 @@ class Scrape
                 return;
             }
 
-            $imageUrl = "";
+            $imageUrl = "N/A";
             if (!$this->getProductImageUrl($node, $imageUrl))
             {
                 echo "Failed to get product image url\n";
-                return;
             }
 
             $capacity = 0;
@@ -73,8 +82,13 @@ class Scrape
             if (!$this->getProductAvailability($node, $isAvailable, $availabilityText))
             {
                 echo "Failed to get product availability\n";
-                return;
             }
+
+            $shippingText = "";
+            $this->getProductShippingText($node, $shippingText);
+
+            $shippingDate = "";
+            $this->getProductShippingDate($node, $shippingDate);
 
             foreach ($colours as $colour)
             {
@@ -85,7 +99,11 @@ class Scrape
                 $product->capacityMB = $capacity;
                 $product->isAvailable = $isAvailable;
                 $product->availabilityText = $availabilityText;
+                $product->shippingText = $shippingText;
+                $product->shippingDate = $shippingDate;
 
+                echo count($this->products) . ': ' . $product->title . "\n";
+                
                 $this->products[] = $product;
             }
         });
@@ -179,6 +197,55 @@ class Scrape
         $availabilityText = str_replace(self::AVAILABILITY_STR_TEST . ' ', '', $txt);
 
         return true;
+    }
+
+    private function getProductShippingText($node, &$shippingText)
+    {
+        $txt = $node->filter('div div')->last()->text();
+
+        if (str_contains($txt, self::SHIPPING_DELIVERY_TEST) ||
+            str_contains($txt, self::SHIPPING_FREE_TEST) ||
+            preg_match("#[0-9]+#", $txt))
+        {
+            $shippingText = $txt;
+            return true;
+        }
+
+        return false;
+    }
+
+    private function getProductShippingDate($node, &$shippingDate)
+    {
+        $shippingText = "";
+        if (!$this->getProductShippingText($node, $shippingText))
+        {
+            return false;
+        }
+
+        $date_strings = implode('|', self::DATES_SHORT);
+        $matches = [];
+        $date_info = date_parse($shippingText);
+
+        if (count($date_info['errors']) <= 0)
+        {
+            $timestamp = mktime(0, 0, 0, $date_info['month'], $date_info['day'], $date_info['year']);
+            $shippingDate = date(self::DATE_OUTPUT_FORMAT, $timestamp);
+            return true;
+        }
+
+        if (preg_match("#\d(.+)($date_strings)(.+)(\d+)#", $shippingText, $matches))
+        {
+            $date_info = date_parse($matches[0]);
+
+            if (count($date_info['errors']) <= 0)
+            {
+                $timestamp = mktime(0, 0, 0, $date_info['month'], $date_info['day'], $date_info['year']);
+                $shippingDate = date(self::DATE_OUTPUT_FORMAT, $timestamp);
+                return true;
+            }
+        }
+        
+        return false;
     }
 
     private function parsePrice($price_str)
