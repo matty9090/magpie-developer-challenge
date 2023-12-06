@@ -13,59 +13,70 @@ class Scrape
     private const URL = 'https://www.magpiehq.com/developer-challenge/smartphones';
 
     private const UNITS_MB = [
-        'PB' => 1024 * 1024 * 1024, // Maybe one day ;)
-        'TB' => 1024 * 1024,
-        'GB' => 1024,
+        'PB' => 1000 * 1000 * 1000, // Maybe one day ;)
+        'TB' => 1000 * 1000,
+        'GB' => 1000,
         'MB' => 1,
-        'KB' => 1 / 1024
+        'KB' => 1 / 1000
     ];
 
     private array $products = [];
 
     public function run() : void
     {
+        $this->products = [];
+
         $document = ScrapeHelper::fetchDocument(self::URL);
 
-        $this->products = $document->filter('.product')->each(function (Crawler $node, $i) : Product {
-            $product = new Product();
-            
+        $document->filter('.product')->each(function (Crawler $node, $i) {
             $title = "";
             if (!$this->getProductTitle($node, $title))
             {
                 echo "Failed to get product title\n";
-                return null;
+                return;
             }
             
             $price = 0.0;
             if (!$this->getProductPrice($node, $price))
             {
                 echo "Failed to get product price\n";
-                return null;
+                return;
             }
 
             $imageUrl = "";
             if (!$this->getProductImageUrl($node, $imageUrl))
             {
                 echo "Failed to get product image url\n";
-                return null;
+                return;
             }
 
             $capacity = 0;
             if (!$this->getProductCapacity($title, $capacity))
             {
                 echo "Failed to get product capacity\n";
-                return null;
+                return;
             }
 
-            $product->title = $title;
-            $product->price = $this->parsePrice($price);
-            $product->imageUrl = $imageUrl;
-            $product->capacity = $capacity;
+            $colours = [];
+            if (!$this->getProductColours($node, $colours))
+            {
+                echo "Failed to get product colours\n";
+                return;
+            }
 
-            return $product;
+            foreach ($colours as $colour)
+            {
+                $product = new Product();
+                $product->title = $title;
+                $product->price = $this->parsePrice($price);
+                $product->imageUrl = $imageUrl;
+                $product->capacityMB = $capacity;
+                $product->colour = $colour;
+
+                $this->products[] = $product;
+            }
         });
 
-        $this->removeNull();
         $this->removeDuplicates();
         
         file_put_contents('output.json', json_encode($this->products, JSON_PRETTY_PRINT));
@@ -117,7 +128,7 @@ class Scrape
     private function getProductCapacity($title, &$capacity)
     {
         $matches = [];
-        
+
         if (preg_match("#(\d+)(\s+)?(GB|MB|KB)#", $title, $matches))
         {
             $raw_capacity = $matches[1];
@@ -130,16 +141,18 @@ class Scrape
         return false;
     }
 
+    private function getProductColours($node, &$colours)
+    {
+        $colours = $node->filter('span[data-colour]')->each(function (Crawler $node, $i) : string {
+            return strtolower($node->attr('data-colour'));
+        });
+
+        return count($colours) >= 0;
+    }
+
     private function parsePrice($price_str)
     {
         return doubleval(str_replace(self::CURRENCY_SYMBOL, '', $price_str));
-    }
-
-    private function removeNull()
-    {
-        $this->products = array_filter($this->products, function($product) {
-            return $product != null;
-        });
     }
 
     private function removeDuplicates()
@@ -147,7 +160,7 @@ class Scrape
         $this->products = array_filter($this->products, function($product) {
             foreach ($this->products as &$other)
             {
-                if ($product != $other && $product->title == $other->title)
+                if ($product != $other && $product->equals($other))
                 {
                     return false;
                 }
