@@ -7,7 +7,7 @@ use Symfony\Component\DomCrawler\Crawler;
 
 class ScrapeHelper
 {
-    public static function fetchDocument(string $url): Crawler
+    public static function fetchDocument(string $url) : Crawler
     {
         $client = new Client();
 
@@ -17,7 +17,7 @@ class ScrapeHelper
     }
 
     /* Adapted from: https://stackoverflow.com/a/25778430 */
-    public static function convertRelativeUrlToAbsolute($rel, $base)
+    public static function convertRelativeUrlToAbsolute($rel, $base) : string
     {
         /* parse base URL and convert to local variables:
         $scheme, $host, $path */

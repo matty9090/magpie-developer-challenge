@@ -18,12 +18,7 @@ class Product
     {
         return $this->title == $other->title &&
                $this->price == $other->price &&
-               $this->imageUrl == $other->imageUrl &&
                $this->capacityMB == $other->capacityMB &&
-               $this->colour == $other->colour &&
-               $this->availabilityText == $other->availabilityText &&
-               $this->isAvailable == $other->isAvailable &&
-               $this->shippingText == $other->shippingText &&
-               $this->shippingDate == $other->shippingDate;
+               $this->colour == $other->colour;
     }
 }

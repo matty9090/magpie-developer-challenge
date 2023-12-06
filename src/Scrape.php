@@ -9,7 +9,7 @@ use Symfony\Component\DomCrawler\Crawler;
 
 class Scrape
 {
-    private const URL = 'https://www.magpiehq.com/developer-challenge/smartphones';
+    private const URL = 'https://www.magpiehq.com/developer-challenge/smartphones/?page=';
     
     private const CURRENCY_SYMBOL = '£';
 
@@ -39,8 +39,34 @@ class Scrape
     {
         $this->products = [];
 
-        $document = ScrapeHelper::fetchDocument(self::URL);
+        $document = ScrapeHelper::fetchDocument(self::URL . '1');
+        $pages = $this->getNumPages($document);
 
+        $this->crawlPage($document);
+
+        for ($page = 2; $page <= $pages; ++$page)
+        {
+            $this->crawlPage(ScrapeHelper::fetchDocument(self::URL . $page));
+        }
+        
+        $this->removeDuplicates();
+        
+        file_put_contents('output.json', json_encode($this->products, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+    }
+
+    private function getNumPages(Crawler $document) : int
+    {
+        $matches = [];
+        if (preg_match("#Page \d of (\d)#", $document->text(), $matches))
+        {
+           return intval($matches[1]);
+        }
+
+        return 1;
+    }
+
+    private function crawlPage(Crawler $document) : void
+    {
         $document->filter('.product')->each(function (Crawler $node, $i) {
             $title = "";
             if (!$this->getProductTitle($node, $title))
@@ -107,13 +133,9 @@ class Scrape
                 $this->products[] = $product;
             }
         });
-
-        $this->removeDuplicates();
-        
-        file_put_contents('output.json', json_encode($this->products, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
     }
 
-    private function getProductTitle($node, &$title)
+    private function getProductTitle($node, &$title) : bool
     {
         $filtered = $node->filter('h3');
         $success = $filtered->count() >= 0;
@@ -126,7 +148,7 @@ class Scrape
         return $success;
     }
 
-    private function getProductPrice($node, &$price)
+    private function getProductPrice($node, &$price) : bool
     {
         $filtered = $node->filter('div div')->reduce(function (Crawler $price_node, $j) : bool {
             return str_contains($price_node->text(), '£');
@@ -142,7 +164,7 @@ class Scrape
         return $success;
     }
 
-    private function getProductImageUrl($node, &$imageUrl)
+    private function getProductImageUrl($node, &$imageUrl) : bool
     {
         $filtered = $node->filter('img');
         $success = $filtered->count() >= 0;
@@ -156,7 +178,7 @@ class Scrape
         return $success;
     }
 
-    private function getProductCapacity($title, &$capacity)
+    private function getProductCapacity($title, &$capacity) : bool
     {
         $matches = [];
 
@@ -172,7 +194,7 @@ class Scrape
         return false;
     }
 
-    private function getProductColours($node, &$colours)
+    private function getProductColours($node, &$colours) : bool
     {
         $colours = $node->filter('span[data-colour]')->each(function (Crawler $col_node, $i) : string {
             return strtolower($col_node->attr('data-colour'));
@@ -181,7 +203,7 @@ class Scrape
         return count($colours) >= 0;
     }
 
-    private function getProductAvailability($node, &$isAvailable, &$availabilityText)
+    private function getProductAvailability($node, &$isAvailable, &$availabilityText) : bool
     {
         $filtered = $node->filter('div div')->reduce(function (Crawler $avail_node, $j) : bool {
             return str_contains($avail_node->text(), self::AVAILABILITY_STR_TEST);
@@ -199,7 +221,7 @@ class Scrape
         return true;
     }
 
-    private function getProductShippingText($node, &$shippingText)
+    private function getProductShippingText($node, &$shippingText) : bool
     {
         $txt = $node->filter('div div')->last()->text();
 
@@ -214,7 +236,7 @@ class Scrape
         return false;
     }
 
-    private function getProductShippingDate($node, &$shippingDate)
+    private function getProductShippingDate($node, &$shippingDate) : bool
     {
         $shippingText = "";
         if (!$this->getProductShippingText($node, $shippingText))
@@ -248,12 +270,12 @@ class Scrape
         return false;
     }
 
-    private function parsePrice($price_str)
+    private function parsePrice($price_str) : float
     {
         return doubleval(str_replace(self::CURRENCY_SYMBOL, '', $price_str));
     }
 
-    private function removeDuplicates()
+    private function removeDuplicates() : void
     {
         $this->products = array_filter($this->products, function($product) {
             foreach ($this->products as &$other)
