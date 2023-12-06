@@ -39,16 +39,27 @@ class Scrape
     {
         $this->products = [];
 
-        echo 'Crawling...';
+        echo 'Crawling.';
 
-        $document = ScrapeHelper::fetchDocument(self::URL . '1');
-        $pages = $this->getNumPages($document);
+        $firstpage = ScrapeHelper::fetchDocument(self::URL . '1');
+        $num_pages = $this->getNumPages($firstpage);
 
-        $this->crawlPage($document);
+        $this->crawlPage($firstpage);
 
-        for ($page = 2; $page <= $pages; ++$page)
+        echo '.';
+
+        $urls = [];
+        for ($page = 2; $page <= $num_pages; ++$page)
         {
-            $this->crawlPage(ScrapeHelper::fetchDocument(self::URL . $page));
+            $urls[] = self::URL . $page;
+        }
+
+        $allpages = ScrapeHelper::fetchDocuments($urls);
+
+        foreach ($allpages as $page)
+        {
+            echo '.';
+            $this->crawlPage($page);
         }
 
         echo " Done\n";

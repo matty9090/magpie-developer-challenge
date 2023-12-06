@@ -3,6 +3,7 @@
 namespace App;
 
 use GuzzleHttp\Client;
+use GuzzleHttp\Promise;
 use Symfony\Component\DomCrawler\Crawler;
 
 class ScrapeHelper
@@ -14,6 +15,27 @@ class ScrapeHelper
         $response = $client->get($url);
 
         return new Crawler($response->getBody()->getContents(), $url);
+    }
+
+    public static function fetchDocuments($urls) : array
+    {
+        $client = new Client();
+        $promises = [];
+        $crawlers = [];
+        
+        foreach ($urls as $url)
+        {   
+            $promises[$url] = $client->getAsync($url);
+        }
+        
+        $responses = Promise\Utils::settle($promises)->wait();
+        
+        foreach ($responses as $url => $response)
+        {
+            $crawlers[] = new Crawler($response['value']->getBody()->getContents(), $url);
+        }
+
+        return $crawlers;
     }
 
     /* Adapted from: https://stackoverflow.com/a/25778430 */
