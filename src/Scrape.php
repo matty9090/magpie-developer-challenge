@@ -151,7 +151,7 @@ class Scrape
     private function getProductPrice($node, &$price) : bool
     {
         $filtered = $node->filter('div div')->reduce(function (Crawler $price_node, $j) : bool {
-            return str_contains($price_node->text(), '£');
+            return str_contains($price_node->text(), self::CURRENCY_SYMBOL);
         });
 
         $success = $filtered->count() >= 0;
