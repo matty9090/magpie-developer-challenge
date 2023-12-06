@@ -39,6 +39,8 @@ class Scrape
     {
         $this->products = [];
 
+        echo 'Crawling...';
+
         $document = ScrapeHelper::fetchDocument(self::URL . '1');
         $pages = $this->getNumPages($document);
 
@@ -48,9 +50,20 @@ class Scrape
         {
             $this->crawlPage(ScrapeHelper::fetchDocument(self::URL . $page));
         }
+
+        echo " Done\n";
+        echo 'Removing duplicates...';
         
-        $this->removeDuplicates();
+        $num_removed = $this->removeDuplicates();
         
+        echo " Done ($num_removed removed)\n";
+        echo "\nScrape results (" . count($this->products) . " products)\n";
+        
+        foreach ($this->products as $product)
+        {
+            echo "   " . $product->title . " ($product->colour)" . "\n";
+        }
+
         file_put_contents('output.json', json_encode($this->products, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
     }
 
@@ -127,8 +140,6 @@ class Scrape
                 $product->availabilityText = $availabilityText;
                 $product->shippingText = $shippingText;
                 $product->shippingDate = $shippingDate;
-
-                echo count($this->products) . ': ' . $product->title . " ($colour)" . "\n";
                 
                 $this->products[] = $product;
             }
@@ -180,9 +191,10 @@ class Scrape
 
     private function getProductCapacity($title, &$capacity) : bool
     {
+        $capacity_strings = implode('|', array_keys(self::UNITS_MB));
         $matches = [];
 
-        if (preg_match("#(\d+)(\s+)?(GB|MB|KB)#", $title, $matches))
+        if (preg_match("#(\d+)(\s+)?($capacity_strings)#", $title, $matches))
         {
             $raw_capacity = $matches[1];
             $unit = $matches[3];
@@ -275,19 +287,26 @@ class Scrape
         return doubleval(str_replace(self::CURRENCY_SYMBOL, '', $price_str));
     }
 
-    private function removeDuplicates() : void
+    private function removeDuplicates() : int
     {
-        $this->products = array_filter($this->products, function($product) {
+        $num_removed = 0;
+
+        $this->products = array_filter($this->products, function($product) use (&$num_removed) {
             foreach ($this->products as &$other)
             {
                 if ($product != $other && $product->equals($other))
                 {
+                    ++$num_removed;
                     return false;
                 }
             }
 
             return true;
         });
+
+        $this->products = array_values($this->products);
+
+        return $num_removed;
     }
 }
 
