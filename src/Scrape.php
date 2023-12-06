@@ -81,7 +81,7 @@ class Scrape
     private function getNumPages(Crawler $document) : int
     {
         $matches = [];
-        if (preg_match("#Page \d of (\d)#", $document->text(), $matches))
+        if (preg_match("#Page \d+ of (\d+)#", $document->text(), $matches))
         {
            return intval($matches[1]);
         }
